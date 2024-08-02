@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>QR Code Scanner</title>
+	<style>
+	    
+        body {
+            font-family: Arial, sans-serif; 
+            background-color: black; 
+			color: #ffffff;
+			font-size: 16px;
+			font-weight: bold;
+			text-align: center;
+			text-transform: uppercase;
+			letter-spacing: 2px;
+			line-height: 1.5;
+			text-shadow: 2px 2px 4px #000000;
+			opacity: 0.8;
+			overflow: hidden;
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+        }
+
+        
+        #container {
+            text-align: center;
+        }   
+
+        
+        #video {
+            width: 100%; 
+            max-width: 600px; 
+            margin: 0 auto;
+            display: none; 
+        }
+
+        
+        #scannedImage {
+            width: 100%; 
+            max-width: 600px; 
+            margin: 20px auto; 
+            display: none;
+        }
+
+        
+        #qrData {
+            font-size: 18px; 
+            margin-top: 10px; 
+            text-align: center; 
+            display: none;
+        }
+    
+        
+        #buttons {
+            margin-top: 20px; 
+        }
+
+        
+        .button {
+            padding: 10px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 5px; 
+            background-color: #ff0000; 
+			color: rgb(0, 0, 0);
+			font-weight: bold;
+			text-align: center;
+			text-transform: uppercase;
+			letter-spacing: 2px;
+			line-height: 1.5;
+			text-shadow: 2px 2px 4px #ffffff;
+            color: rgb(0, 0, 0); 
+            margin: 5px; 
+            transition: background-color 0.3s; 
+        }
+
+        
+        .button:hover {
+            background-color: #00ff0d; 
+        }
+
+        
+        input[type="file"] {
+            display: none; 
+        }
+
+       
+        label {
+            display: inline-block; 
+            padding: 10px 20px;
+            font-size: 16px; 
+            cursor: pointer; 
+            border-radius: 5px; 
+            background-color: #ffffff; 
+            color: rgb(0, 0, 0); 
+            margin: 5px; 
+            transition: background-color 0.3s; 
+        }
+
+        
+        label:hover {
+            background-color: #0099ff; 
+        }
+
+	</style>
+</head>
+
+<body>
+	<div id="container">
+		
+		<video id="video" playsinline></video>
+		<img id="scannedImage">
+		<div id="qrData"></div>
+		<div id="buttons">
+			<button class="button" id="webcamButton">Webcam QR code scanner</button>
+			<label for="fileInput">Scan QR code from image</label>
+			<input type="file" accept="image/*" id="fileInput">
+		</div>
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+	<script>
+	const video = document.getElementById('video');
+	const scannedImage = document.getElementById('scannedImage');
+	const qrDataLabel = document.getElementById('qrData');
+	const webcamButton = document.getElementById('webcamButton');
+	const fileInput = document.getElementById('fileInput');
+	function showWebcam() {
+		
+		qrDataLabel.textContent = ''; 
+		qrDataLabel.style.display = 'none'; 
+		scannedImage.style.display = 'none'; 
+		video.style.display = 'block';
+		startWebcamScanning();
+	}
+		function startWebcamScanning() {
+		if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+			navigator.mediaDevices.getUserMedia({
+				video: {
+					facingMode: 'environment'
+				}
+			}).then(function(stream) {
+				video.srcObject = stream;
+				video.play();
+			}).catch(function(error) {
+				qrDataLabel.textContent = 'Error accessing camera: ' + error;
+			});
+		} else {
+			qrDataLabel.textContent = 'getUserMedia is not supported';
+		}
+	}
+	const intervalId = setInterval(() => {
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d');
+		canvas.width = video.videoWidth;
+		canvas.height = video.videoHeight;
+		ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+		const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+		const code = jsQR(imageData.data, imageData.width, imageData.height);
+		if(code) {
+			
+			const qrData = code.data;
+			qrDataLabel.textContent = 'QR Code Data: ' + qrData;
+			qrDataLabel.style.display = 'block';
+			clearInterval(intervalId);
+			const tracks = video.srcObject.getTracks();
+			tracks.forEach(track => track.stop());
+			scannedImage.src = canvas.toDataURL();
+			scannedImage.style.display = 'block';
+			video.style.display = 'none';
+			if(isUrl(qrData)) {
+				window.open(qrData, '_blank');
+			}
+		}
+	}, 100); 
+	function isUrl(str) {
+		return str.startsWith('http://') || str.startsWith('https://');
+	}
+	fileInput.addEventListener('change', function(event) {
+		const file = event.target.files[0];
+		const reader = new FileReader();
+		reader.onload = function(event) {
+			const image = new Image();
+			image.onload = function() {
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d');
+				canvas.width = image.width;
+				canvas.height = image.height;
+				ctx.drawImage(image, 0, 0);
+				const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+				const code = jsQR(imageData.data, imageData.width, imageData.height);
+				if(code) {
+					qrDataLabel.textContent = 'QR Code Data: ' + code.data;
+					qrDataLabel.style.display = 'block';
+					scannedImage.src = event.target.result;
+					scannedImage.style.display = 'block';
+					video.style.display = 'none'; 
+					if(isUrl(code.data)) {
+						window.open(code.data, '_blank');
+					}
+				} else {
+					qrDataLabel.textContent = 'No QR code found in the selected image';
+					qrDataLabel.style.display = 'block';
+				}
+			};
+			image.src = event.target.result;
+		};
+		reader.readAsDataURL(file);
+	});
+	webcamButton.addEventListener('click', showWebcam);
+	</script>
+</body>
+
+</html>
